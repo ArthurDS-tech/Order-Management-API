@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # Bancos e infra primeiro - sempre bom ter eles rodando antes dos serviços
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: dev
+      RABBITMQ_DEFAULT_PASS: dev123
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # API Gateway - ponto de entrada único
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Order Service - coração do sistema
+  order-service:
+    build:
+      context: .
+      dockerfile: src/OrderService/Dockerfile
+    ports:
+      - "5001:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=orders;Username=dev;Password=dev123
+      - ConnectionStrings__Redis=redis:6379
+      - MessageBroker__Host=rabbitmq
+      - MessageBroker__Username=dev
+      - MessageBroker__Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Payment Service - processa os pagamentos
+  payment-service:
+    build:
+      context: .
+      dockerfile: src/PaymentService/Dockerfile
+    ports:
+      - "5002:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=payments;Username=dev;Password=dev123
+      - ConnectionStrings__Redis=redis:6379
+      - MessageBroker__Host=rabbitmq
+      - MessageBroker__Username=dev
+      - MessageBroker__Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Inventory Service - cuida do estoque
+  inventory-service:
+    build:
+      context: .
+      dockerfile: src/InventoryService/Dockerfile
+    ports:
+      - "5003:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=inventory;Username=dev;Password=dev123
+      - ConnectionStrings__Redis=redis:6379
+      - MessageBroker__Host=rabbitmq
+      - MessageBroker__Username=dev
+      - MessageBroker__Password=dev123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Notification Service - manda emails e SMS
+  notification-service:
+    build:
+      context: .
+      dockerfile: src/NotificationService/Dockerfile
+    ports:
+      - "5004:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - MessageBroker__Host=rabbitmq
+      - MessageBroker__Username=dev
+      - MessageBroker__Password=dev123
+      - Email__Provider=Mock # SendGrid quando for pra prod
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  default:
+    name: ecommerce-network
