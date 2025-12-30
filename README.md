@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="[[https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=28&pause=1000&color=00D4FF&center=true&vCenter=true&random=false&width=600&lines=🛒+Order+Management+API;🚀+Microsserviços+em+.NET+8;💳+E-commerce+Escalável](https://cdn3d.iconscout.com/3d/premium/thumb/tecla-a-3d-icon-png-download-9741287.png](https://cdn3d.iconscout.com/3d/premium/thumb/tecla-a-3d-icon-png-download-9741287.png)" alt="Typing SVG" />
+  <img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/csharp/csharp-original.svg" alt="Typing SVG" />
 </div>
 
 <div align="center">
