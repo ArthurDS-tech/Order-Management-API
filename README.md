@@ -2,9 +2,10 @@
   <img 
     src="https://raw.githubusercontent.com/devicons/devicon/master/icons/csharp/csharp-original.svg"
     alt="C#"
-    width="40"
+    width="48"
   />
 </div>
+
 
 
 <div align="center">
